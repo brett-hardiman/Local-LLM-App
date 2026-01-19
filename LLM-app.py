@@ -3,12 +3,38 @@
 # Imports
 import streamlit as st
 import ollama
+import os
+from pathlib import Path
 
 # Set the page configuration
 st.set_page_config(page_title="Local LLM Project", layout="wide", page_icon="🤖")
 
 st.title("🤖 Local LLM Chatbot")
 st.caption("Running locally with Llama 3.2 - no data leaves this machine!")
+
+# Initialize session state for uploaded files
+if "uploaded_files" not in st.session_state:
+    st.session_state.uploaded_files = []
+
+if "file_contents" not in st.session_state:
+    st.session_state.file_contents = {}
+
+# File upload section in sidebar
+with st.sidebar:
+    st.header("📁 File Upload")
+    uploaded_files = st.file_uploader(
+        "Upload documents for context",
+        type=["txt", "pdf", "md"],
+        accept_multiple_files=True
+    )
+    
+    if uploaded_files:
+        for uploaded_file in uploaded_files:
+            if uploaded_file.name not in st.session_state.file_contents:
+                # Read file content
+                content = uploaded_file.read().decode("utf-8", errors="ignore")
+                st.session_state.file_contents[uploaded_file.name] = content
+                st.success(f"✓ Loaded: {uploaded_file.name}")
 
 # LLMs do not remember previous interactions by default, so we need to store the conversation history
 
@@ -23,8 +49,22 @@ for message in st.session_state.messages:
     else:
         st.chat_message(message["role"]).write(message["content"])
 
+# Function to retrieve relevant context from uploaded files
+def retrieve_context(query, max_chars=2000):
+    """Simple context retrieval based on keyword matching"""
+    if not st.session_state.file_contents:
+        return ""
+    
+    context = ""
+    for filename, content in st.session_state.file_contents.items():
+        # Simple relevance check - look for query terms in content
+        if any(word.lower() in content.lower() for word in query.split()):
+            context += f"\n[From {filename}]:\n{content[:max_chars]}\n"
+    
+    return context if context else ""
+
 # The Interaction Loop
-# We collect the user's input, show it, and then get a resonse from Ollama LLM
+# We collect the user's input, show it, and then get a response from Ollama LLM
 
 if prompt := st.chat_input("What is on your mind?"):
     # 1. Display user message immediately
@@ -36,11 +76,20 @@ if prompt := st.chat_input("What is on your mind?"):
         response_placeholder = st.empty()
         full_response = ""
 
+        # Retrieve relevant context from uploaded files
+        context = retrieve_context(prompt)
+        
+        # Build the messages list with context
+        messages = [{'role': 'user', 'content': prompt}]
+        if context:
+            system_message = f"You have access to the following documents:\n{context}\nUse this information to answer the user's question."
+            messages.insert(0, {'role': 'system', 'content': system_message})
+
         # 3. Call the Local Model
         # We use 'stream=True' so the text types out like in ChatGPT
         stream = ollama.chat(
             model='llama3.2',
-            messages=[{'role': 'user', 'content': prompt}],
+            messages=messages,
             stream=True,
         )
 
