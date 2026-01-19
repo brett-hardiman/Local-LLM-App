@@ -57,3 +57,14 @@ Before getting started, make sure you have:
  - Streamlit — Python UI framework
 
  - Llama 3.2 — Example LLM used in this project
+   
+
+🙏 Credits & Acknowledgments
+
+This project was inspired by and built following the guide:
+
+“Building Your First Local LLM App”
+Author: Aman XAI
+Website: https://amanxai.com
+
+The article provides a clear, beginner-friendly walkthrough for running a local LLM using Ollama and Streamlit, and served as the foundational reference for this project’s structure and implementation. I took it a step further by adding in multi-document search, file upload, and context retrieval!
