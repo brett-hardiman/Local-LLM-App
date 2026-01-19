@@ -37,3 +37,23 @@ Before getting started, make sure you have:
  - Ollama installed and initialized on your system
 
  - At least 8–16GB of RAM (recommended for best performance)
+   
+
+💡 How It Works
+
+- Streamlit UI — Displays a friendly chat interface.
+
+ - Session State — Maintains conversation history.
+
+ - Ollama Chat — Calls the local model with streaming responses.
+
+ - Typing Effect — Uses stream=True for progressive output.
+
+ 
+ 📖 Resources
+
+ - Ollama — Local model management tool
+
+ - Streamlit — Python UI framework
+
+ - Llama 3.2 — Example LLM used in this project
