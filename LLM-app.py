@@ -5,6 +5,7 @@ import streamlit as st
 import ollama
 import os
 from pathlib import Path
+from PyPDF2 import PdfReader
 
 # Set the page configuration
 st.set_page_config(page_title="Local LLM Project", layout="wide", page_icon="🤖")
@@ -31,10 +32,32 @@ with st.sidebar:
     if uploaded_files:
         for uploaded_file in uploaded_files:
             if uploaded_file.name not in st.session_state.file_contents:
-                # Read file content
-                content = uploaded_file.read().decode("utf-8", errors="ignore")
-                st.session_state.file_contents[uploaded_file.name] = content
-                st.success(f"✓ Loaded: {uploaded_file.name}")
+                # Read file content based on file type
+                try:
+                    if uploaded_file.name.endswith('.pdf'):
+                        # Extract text from PDF
+                        pdf_reader = PdfReader(uploaded_file)
+                        content = ""
+                        for page in pdf_reader.pages:
+                            content += page.extract_text()
+                    else:
+                        # Read text/markdown files
+                        content = uploaded_file.read().decode("utf-8", errors="ignore")
+                    
+                    st.session_state.file_contents[uploaded_file.name] = content
+                    st.success(f"✓ Loaded: {uploaded_file.name}")
+                except Exception as e:
+                    st.error(f"Error loading {uploaded_file.name}: {e}")
+    
+    # Display loaded files
+    if st.session_state.file_contents:
+        st.subheader("Loaded Documents")
+        for filename in st.session_state.file_contents.keys():
+            col1, col2 = st.columns([3, 1])
+            col1.write(f"📄 {filename}")
+            if col2.button("Remove", key=f"remove_{filename}"):
+                del st.session_state.file_contents[filename]
+                st.rerun()
 
 # LLMs do not remember previous interactions by default, so we need to store the conversation history
 
@@ -51,15 +74,31 @@ for message in st.session_state.messages:
 
 # Function to retrieve relevant context from uploaded files
 def retrieve_context(query, max_chars=2000):
-    """Simple context retrieval based on keyword matching"""
+    """Enhanced context retrieval with multi-document search and relevance scoring"""
     if not st.session_state.file_contents:
         return ""
     
-    context = ""
+    query_words = query.lower().split()
+    results = []
+    
     for filename, content in st.session_state.file_contents.items():
-        # Simple relevance check - look for query terms in content
-        if any(word.lower() in content.lower() for word in query.split()):
-            context += f"\n[From {filename}]:\n{content[:max_chars]}\n"
+        # Calculate relevance score based on keyword matches
+        matches = sum(1 for word in query_words if word in content.lower())
+        
+        if matches > 0:
+            results.append({
+                "filename": filename,
+                "content": content[:max_chars],
+                "score": matches
+            })
+    
+    # Sort by relevance score (highest first)
+    results.sort(key=lambda x: x["score"], reverse=True)
+    
+    # Build context from all relevant documents
+    context = ""
+    for result in results:
+        context += f"\n[From {result['filename']} - Relevance: {result['score']}]:\n{result['content']}\n"
     
     return context if context else ""
 
